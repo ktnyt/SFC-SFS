@@ -4,12 +4,13 @@ use warnings;
 use strict;
 use Carp;
 
-use version; our $VERSION = qv('1.0.0');
+use version; our $VERSION = qv('0.0.1');
 
 use utf8;
 use Encode;
-use LWP::Simple;
+use LWP::UserAgent;
 
+my $ua = LWP::UserAgent->new();
 my $base = "vu8.sfc.keio.ac.jp/sfc-sfs";
 
 sub new {
@@ -44,7 +45,14 @@ sub get_token {
     my $url = sprintf("http://%s/login.cgi?u_login=%s&u_pass=%s",
                       $base, $thys->{cns_username}, $thys->{cns_password});
 
-    my $token = get($url);
+    my $res = $ua->get($url);
+
+    unless($res->is_success) {
+        die($res->status_line);
+    }
+
+    my $token = $res->decoded_content;
+
     unless($token =~ s/^.+id=([\d\w]+?)&.+$/$1/g) {
         die("Unable to authenticate user");
     }
@@ -59,14 +67,20 @@ sub get_timetable {
 
     $thys->set(%args);
 
-    unless(exists($thys->{cns_token}) && length($thys->{token})) {
+    unless(exists($thys->{token}) && length($thys->{token})) {
         $thys->get_token();
     }
 
     my $url = sprintf("http://%s/sfs_class/student/view_timetable.cgi?id=%s".
       "&term=2014s&fix=0&lang=ja", $base, $thys->{token});
 
-    my $html = get($url);
+    my $res = $ua->get($url);
+
+    unless($res->is_success) {
+        die($res->status_line);
+    }
+
+    my $html = $res->decoded_content;
     my $table;
     my $i = 0;
 
@@ -140,7 +154,7 @@ This document describes SFC::SFS version 0.0.1
 =head1 INTERFACE 
 
 Constructor:
-$sfs = Rcmd::Plot->new(<arguments>);
+$sfs = SFC::SFS->new(<arguments>);
 
 
 =head1 DIAGNOSTICS
@@ -177,7 +191,7 @@ SFC::SFS requires no configuration files or environment variables.
 
 =head1 DEPENDENCIES
 
-LWP::Simple
+LWP::UserAgent
 Encode
 
 
